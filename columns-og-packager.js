@@ -51,8 +51,11 @@ function buildAppMarkSvg() {
     '    </linearGradient>',
     '  </defs>',
     '  <rect x="4" y="4" width="88" height="88" rx="22" fill="#151515" stroke="url(#columns-gold)" stroke-width="6"/>',
-    '  <text x="48" y="61" text-anchor="middle" font-family="Trebuchet MS, Verdana, sans-serif" font-size="34" font-weight="900" letter-spacing="-3" fill="url(#columns-gold)">RM</text>',
-  '</svg>',
+    '  <rect x="20" y="24" width="56" height="48" rx="7" fill="#222" stroke="#fff2bd" stroke-width="4"/>',
+    '  <path d="M38 25v46M56 25v46" stroke="url(#columns-gold)" stroke-width="5" stroke-linecap="round"/>',
+    '  <path d="M26 38h44M26 52h44" stroke="#ffd000" stroke-width="4" stroke-linecap="round" opacity=".78"/>',
+    '  <path d="M29 64h8M47 64h8M65 64h5" stroke="#fff2bd" stroke-width="4" stroke-linecap="round"/>',
+    '</svg>',
   ].join("\n");
 }
 
@@ -128,8 +131,8 @@ function buildManifestHtml({ appName, build, manifestBase64 }) {
   ].join("\n");
 }
 
-function buildLandingHtml({ appName, build, bookmarklet, manifestUrl, screenshotUrl, iconUrl }) {
-  const title = `${appName} Loader`;
+function buildLandingHtml({ appName, displayName = appName, build, bookmarklet, manifestUrl, screenshotUrl, iconUrl }) {
+  const title = `${displayName} Loader`;
   const inlineMark = buildAppMarkSvg();
   return [
     "<!doctype html>",
@@ -139,7 +142,7 @@ function buildLandingHtml({ appName, build, bookmarklet, manifestUrl, screenshot
     '  <meta name="viewport" content="width=device-width, initial-scale=1" />',
     `  <title>${escapeHtml(title)}</title>`,
     '  <meta name="robots" content="noindex,nofollow" />',
-    `  <meta name="description" content="${escapeHtml(appName)} bookmarklet loader for Facebook Ads Manager column preset export and import." />`,
+    `  <meta name="description" content="${escapeHtml(displayName)} bookmarklet loader for Facebook Ads Manager column preset export and import." />`,
     `  <link rel="icon" href="${escapeHtml(iconUrl)}" type="image/svg+xml" />`,
     "  <style>",
     "    :root {",
@@ -372,7 +375,7 @@ function buildLandingHtml({ appName, build, bookmarklet, manifestUrl, screenshot
     "  <main>",
     "    <nav class=\"nav\">",
     "      <div class=\"brand-wrap\">",
-    `        <div class="brand-line"><span class="brand-mark">${inlineMark}</span><div class="brand">${escapeHtml(appName)}</div></div>`,
+    `        <div class="brand-line"><span class="brand-mark">${inlineMark}</span><div class="brand">${escapeHtml(displayName)}</div></div>`,
     "        <div class=\"byline\">by <a href=\"https://yellowweb.top\" target=\"_blank\" rel=\"noopener\">Yellow Web</a></div>",
     "      </div>",
     "      <div class=\"nav-links\"><a href=\"#install\">Install</a><a href=\"#features\">Features</a><a href=\"#how\">How it works</a><a class=\"tg-link\" href=\"https://t.me/yellow_web\" target=\"_blank\" rel=\"noopener\" aria-label=\"Yellow Web Telegram\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M21.8 4.6 18.6 19.7c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L6 13.2 1.1 11.7c-1.1-.3-1.1-1.1.2-1.6L20.5 2.7c.9-.3 1.7.2 1.3 1.9Z\"/></svg></a></div>",
@@ -380,7 +383,7 @@ function buildLandingHtml({ appName, build, bookmarklet, manifestUrl, screenshot
     "    <section class=\"hero\" id=\"install\">",
     "      <div class=\"hero-grid\">",
     "        <div>",
-    `          <div class="eyebrow">${escapeHtml(appName)} build ${escapeHtml(build)}</div>`,
+    `          <div class="eyebrow">${escapeHtml(displayName)} build ${escapeHtml(build)}</div>`,
     "          <h1>Column presets migration without leaving Ads Manager.</h1>",
     "          <p class=\"lead\">ColumnsManager is a browser-side tool for exporting Facebook Ads Manager column presets from one ad account and importing them into one or many other ad accounts.</p>",
     "          <div class=\"install\">",
@@ -456,6 +459,7 @@ function main() {
   const distRoot = path.dirname(outRoot);
   const baseUrl = readArg("base-url", "");
   const appName = readArg("app", "ColumnsManager");
+  const displayName = "Columns Manager";
   const chunkOgObjectIds = parseListArg("chunk-og-object-ids");
   const source = fs.readFileSync(sourcePath, "utf8");
   const build = readArg("build", detectBuild(source));
@@ -550,6 +554,7 @@ function main() {
   writeFile(path.join(distRoot, APP_MARK_FILE), `${buildAppMarkSvg()}\n`);
   writeFile(path.join(distRoot, "index.html"), buildLandingHtml({
     appName,
+    displayName,
     build,
     bookmarklet,
     manifestUrl: publicUrl("latest/manifest.html"),
