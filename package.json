@@ -1,0 +1,19 @@
+{
+  "name": "columnsmanager",
+  "version": "200526b1",
+  "private": true,
+  "description": "Browser-side Facebook Ads Manager column presets export and import tooling.",
+  "scripts": {
+    "check": "node --check columns-og-packager.js && node --check columns-manager.js && node --check columns-loader.js",
+    "build": "node columns-og-packager.js --base-url=https://columnsmanager.pages.dev/columns",
+    "deploy": "npx wrangler pages deploy ./dist --project-name=columnsmanager --branch=main --commit-dirty=true"
+  },
+  "keywords": [
+    "facebook",
+    "bookmarklet",
+    "yellow-web"
+  ],
+  "author": "Yellow Web",
+  "license": "UNLICENSED",
+  "devDependencies": {}
+}
