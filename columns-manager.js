@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b4",
+    VERSION: "250526b5",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
@@ -374,6 +374,45 @@
     return userSettingsId;
   }
 
+  async function deleteColumnPreset(api, userSettingsId, preset) {
+    const presetId = String(preset?.id || "").trim();
+    if (!presetId) return false;
+    try {
+      await api.delete(presetId);
+      return true;
+    } catch (objectError) {
+      try {
+        await api.delete(`${userSettingsId}/column_presets`, { id: presetId });
+        return true;
+      } catch (edgeError) {
+        throw new Error(edgeError.message || objectError.message);
+      }
+    }
+  }
+
+  async function clearExistingColumnPresets(api, accountId, userSettingsId) {
+    const existing = await fetchColumnPresets(accountId);
+    const presets = existing.presets.filter((preset) => preset.id);
+    if (!presets.length) {
+      log(`No existing presets found in act_${accountId}.`);
+      return { deleted: 0, total: 0 };
+    }
+    log(`Deleting ${presets.length} existing preset(s) in act_${accountId}...`, "warning");
+    let deleted = 0;
+    for (const preset of presets) {
+      try {
+        if (await deleteColumnPreset(api, userSettingsId, preset)) {
+          deleted += 1;
+          log(`Deleted existing preset "${preset.name}" (${preset.id}).`, "success");
+        }
+      } catch (error) {
+        log(`Could not delete existing preset "${preset.name}" (${preset.id}): ${error.message}`, "warning");
+      }
+    }
+    log(`Clear existing finished: ${deleted}/${presets.length} preset(s) deleted.`, deleted === presets.length ? "success" : "warning");
+    return { deleted, total: presets.length };
+  }
+
   async function importPresetsToAccount(accountId, pack, clearExisting) {
     const cleanId = cleanAccountId(accountId);
     if (!cleanId) throw new Error("Choose an import account first.");
@@ -381,8 +420,7 @@
     const api = new GraphApi();
     const userSettingsId = await ensureUserSettings(api, cleanId);
     if (clearExisting) {
-      log(`Deleting existing presets in act_${cleanId}...`, "warning");
-      await api.delete(`${userSettingsId}/column_presets`);
+      await clearExistingColumnPresets(api, cleanId, userSettingsId);
     }
     let ok = 0;
     for (const preset of pack.presets || []) {
