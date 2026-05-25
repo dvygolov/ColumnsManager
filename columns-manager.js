@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b3",
+    VERSION: "250526b4",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
@@ -31,6 +31,7 @@
     loadingPresets: false,
     busy: false,
     logsOpen: false,
+    exportInSingleFile: true,
   };
 
   function escapeHtml(value) {
@@ -317,6 +318,21 @@
     }
   }
 
+  function buildPresetPackage(accountId, account, presets) {
+    return {
+      app: Config.APP,
+      version: Config.VERSION,
+      exportedAt: new Date().toISOString(),
+      sourceAccountId: accountId,
+      sourceAccountName: account?.name || "",
+      presets: presets.map((preset) => ({
+        id: preset.id || "",
+        name: preset.name || "Columns preset",
+        columns: preset.columns || [],
+      })),
+    };
+  }
+
   async function exportColumnPresets(accountId = state.exportAccountId, presetIds = state.selectedPresetIds) {
     const cleanId = cleanAccountId(accountId);
     if (!cleanId) throw new Error("Choose an export account first.");
@@ -327,22 +343,21 @@
     const selectedPresets = state.exportPresets.filter((preset) => selectedIds.has(String(preset.key)));
     if (!selectedPresets.length) throw new Error("Choose at least one preset to export.");
     const account = state.accounts.find((item) => item.id === cleanId);
-    const pack = {
-      app: Config.APP,
-      version: Config.VERSION,
-      exportedAt: new Date().toISOString(),
-      sourceAccountId: cleanId,
-      sourceAccountName: account?.name || "",
-      presets: selectedPresets.map((preset) => ({
-        id: preset.id || "",
-        name: preset.name || "Columns preset",
-        columns: preset.columns || [],
-      })),
-    };
+    let pack = null;
+    if (state.exportInSingleFile) {
+      pack = buildPresetPackage(cleanId, account, selectedPresets);
+      downloadJson(buildExportFileName(cleanId, selectedPresets), pack);
+      log(`Exported ${pack.presets.length} selected preset(s) in one file.`, "success");
+    } else {
+      for (const preset of selectedPresets) {
+        const singlePack = buildPresetPackage(cleanId, account, [preset]);
+        downloadJson(`${safeFileName(preset.name, "columns-preset")}.json`, singlePack);
+      }
+      pack = buildPresetPackage(cleanId, account, selectedPresets);
+      log(`Exported ${selectedPresets.length} selected preset(s) as separate files.`, "success");
+    }
     state.package = pack;
     localStorage.setItem(Config.CACHE_KEY, JSON.stringify(pack));
-    downloadJson(buildExportFileName(cleanId, selectedPresets), pack);
-    log(`Exported ${pack.presets.length} selected preset(s).`, "success");
     renderUiState();
     return pack;
   }
@@ -451,6 +466,7 @@
     const exportButton = root.querySelector("#ywbColumnsExport");
     const importButton = root.querySelector("#ywbColumnsImportButton");
     const packageInfo = root.querySelector("#ywbColumnsPackageInfo");
+    const singleFile = root.querySelector("#ywbColumnsSingleFile");
 
     if (exportSelect) exportSelect.innerHTML = renderAccountOptions(state.exportAccountId);
     if (importSelect) importSelect.innerHTML = renderAccountOptions(state.importAccountId);
@@ -470,6 +486,7 @@
         ? `Last JSON: ${state.package.presets?.length || 0} preset(s) from act_${state.package.sourceAccountId || "unknown"}`
         : "Choose JSON during import; no separate load step needed.";
     }
+    if (singleFile) singleFile.checked = state.exportInSingleFile;
 
     root.querySelectorAll("[data-tab]").forEach((button) => {
       button.classList.toggle("active", button.dataset.tab === state.activeTab);
@@ -562,6 +579,7 @@
                 <button id="ywbColumnsRefresh" type="button">Refresh</button>
               </div>
               <div id="ywbColumnsPresets" class="ywb-presets">${renderPresetList()}</div>
+              <label class="ywb-check"><input id="ywbColumnsSingleFile" type="checkbox" checked> Export in single file</label>
               <div class="ywb-row">
                 <button class="primary" id="ywbColumnsExport">Export selected</button>
               </div>
@@ -628,6 +646,10 @@
       state.selectedPresetIds = event.target.checked
         ? new Set(state.exportPresets.map((preset) => preset.key))
         : new Set();
+      renderUiState();
+    };
+    root.querySelector("#ywbColumnsSingleFile").onchange = (event) => {
+      state.exportInSingleFile = event.target.checked;
       renderUiState();
     };
     root.querySelector("#ywbColumnsPresets").onchange = (event) => {

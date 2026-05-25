@@ -1,0 +1,28 @@
+{
+  "app": "ColumnsManager",
+  "build": "250526b4",
+  "version": "250526b4",
+  "generatedAt": "2026-05-25T14:01:54.080Z",
+  "payload": {
+    "encoding": "base64",
+    "sha256": "6bca4fba172cc5d0ad2565f5363f2c24964399f3dd072a38d7449067a32c39d8",
+    "byteLength": 31947
+  },
+  "chunks": [
+    {
+      "index": 1,
+      "file": "og/chunk-001.html",
+      "url": "https://columnsmanager.pages.dev/columns/250526b4/og/chunk-001.html",
+      "latestUrl": "https://columnsmanager.pages.dev/columns/latest/og/chunk-001.html",
+      "ogObjectId": "",
+      "base64Length": 42596,
+      "base64Sha256": "626a17ff9b6dd0ec6ba2fccaa4f9cf2ee07559ac9a33514f1492579add1dd618"
+    }
+  ],
+  "source": "columns-manager.js",
+  "chunkSize": 350000,
+  "payloadFile": "payload.js",
+  "manifestFile": "manifest.html",
+  "manifestUrl": "https://columnsmanager.pages.dev/columns/250526b4/manifest.html",
+  "latestManifestUrl": "https://columnsmanager.pages.dev/columns/latest/manifest.html"
+}
