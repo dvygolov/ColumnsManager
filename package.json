@@ -1,6 +1,6 @@
 {
   "name": "columnsmanager",
-  "version": "250526b2",
+  "version": "250526b3",
   "private": true,
   "description": "Browser-side Facebook Ads Manager column presets export and import tooling.",
   "scripts": {

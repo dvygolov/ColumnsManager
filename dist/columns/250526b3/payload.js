@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b2",
+    VERSION: "250526b3",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
@@ -30,6 +30,7 @@
     loadingAccounts: false,
     loadingPresets: false,
     busy: false,
+    logsOpen: false,
   };
 
   function escapeHtml(value) {
@@ -114,6 +115,17 @@
 
   function renderLogs(box = document.querySelector("#ywbColumnsLog")) {
     if (!box) return;
+    const root = document.querySelector("#ywbColumnsManager");
+    const toggle = root?.querySelector("#ywbColumnsLogToggle");
+    const count = root?.querySelector("#ywbColumnsLogCount");
+    const last = root?.querySelector("#ywbColumnsLogLast");
+    const latest = state.logs[state.logs.length - 1];
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", state.logsOpen ? "true" : "false");
+      toggle.textContent = state.logsOpen ? "Hide logs" : "Show logs";
+    }
+    if (count) count.textContent = String(state.logs.length);
+    if (last) last.textContent = latest ? `[${latest.ts.slice(11, 19)}] ${latest.message}` : "No log entries yet.";
     box.innerHTML = state.logs
       .map(
         (item) =>
@@ -465,6 +477,7 @@
     root.querySelectorAll("[data-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.panel !== state.activeTab;
     });
+    root.querySelector("#ywbColumnsLogs")?.classList.toggle("open", state.logsOpen);
     renderLogs();
   }
 
@@ -475,44 +488,54 @@
     root.id = "ywbColumnsManager";
     root.innerHTML = `
       <style>
-        #ywbColumnsManager{position:fixed;inset:18px;z-index:2147483647;pointer-events:none;font:14px/1.45 "Segoe UI","Trebuchet MS",sans-serif;color:#f5f5f5}
+        #ywbColumnsManager{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:none;font:13px/1.4 "Segoe UI","Trebuchet MS",sans-serif;color:#f5f5f5}
         #ywbColumnsManager *{box-sizing:border-box}
-        #ywbColumnsManager .ywb-shell{position:relative;width:min(680px,calc(100vw - 36px));max-height:calc(100vh - 36px);margin:0 auto;background:#1a1a1a;border:2px solid #ffc107;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);padding:18px;overflow:auto;pointer-events:auto}
-        .ywb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+        #ywbColumnsManager .ywb-shell{position:relative;width:min(620px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));background:#1a1a1a;border:2px solid #ffc107;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);padding:16px;overflow:hidden;pointer-events:auto;display:flex;flex-direction:column}
+        .ywb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;flex:0 0 auto}
         .ywb-title-row{display:inline-flex;align-items:center;gap:10px}
-        .ywb-mark{width:34px;height:34px;display:block;flex:0 0 auto;filter:drop-shadow(0 6px 14px rgba(255,193,7,.18))}
-        .ywb-head h2{margin:0;color:#ffc107;font-size:22px;line-height:1.1;letter-spacing:.02em}
+        .ywb-mark{width:30px;height:30px;display:block;flex:0 0 auto;filter:drop-shadow(0 6px 14px rgba(255,193,7,.18))}
+        .ywb-head h2{margin:0;color:#ffc107;font-size:20px;line-height:1.08;letter-spacing:0}
         .ywb-build{font-size:12px;font-weight:600;color:#aaa;vertical-align:middle;margin-left:4px}
         .ywb-byline{display:block;font-size:12px;color:#ffc107;text-decoration:none;opacity:.7;margin-top:2px}
         .ywb-byline:hover{opacity:1;text-decoration:underline}
-        .ywb-close{border:1px solid #ffc107;background:#2a2a2a;color:#ffc107;width:34px;height:34px;border-radius:6px;font-weight:900;cursor:pointer}
+        .ywb-close{border:1px solid #ffc107;background:#2a2a2a;color:#ffc107;width:32px;height:32px;border-radius:6px;font-weight:900;cursor:pointer;flex:0 0 auto}
         .ywb-close:hover{background:#ffc107;color:#111}
-        .ywb-body{display:grid;gap:14px;overflow:visible}
+        .ywb-content{min-height:0;overflow:auto;padding-right:4px}
+        .ywb-body{display:grid;gap:12px}
         .ywb-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .ywb-tab{border:1px solid #444;background:#2a2a2a;color:#f5f5f5;border-radius:6px;padding:10px 12px;font-weight:800;cursor:pointer}
+        .ywb-tab{border:1px solid #444;background:#2a2a2a;color:#f5f5f5;border-radius:6px;padding:9px 12px;font-weight:800;cursor:pointer}
         .ywb-tab.active{background:#ffc107;color:#111;border-color:#ffc107}
-        .ywb-panel{display:grid;gap:12px}
+        .ywb-panel{display:grid;gap:10px}
         .ywb-panel[hidden]{display:none}
         .ywb-field{display:grid;gap:5px}
         .ywb-field span{color:#aaa;font-size:12px}
-        .ywb-field select{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:10px 12px;font-size:14px}
+        .ywb-field select{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:9px 12px;font-size:13px}
         .ywb-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-        .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffc107;background:#ffc107;color:#111;border-radius:6px;padding:10px 12px;font-weight:800;cursor:pointer}
+        .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffc107;background:#ffc107;color:#111;border-radius:6px;padding:9px 12px;font-weight:800;cursor:pointer}
         .ywb-row button.primary,.ywb-file.primary{background:#ffc107;color:#111}
         #ywbColumnsRefresh{background:#2a2a2a;color:#ffc107}
         .ywb-row button:hover:not(:disabled),.ywb-file:hover,#ywbColumnsRefresh:hover{filter:brightness(1.08)}
         .ywb-row button:disabled,.ywb-file.disabled{opacity:.48;cursor:not-allowed}
         .ywb-check{display:flex;gap:8px;align-items:center;color:#aaa}
         .ywb-presets-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#aaa;border-bottom:1px solid #444;padding-bottom:8px}
-        .ywb-presets{display:grid;gap:6px;max-height:220px;overflow:auto;border:1px solid #444;background:#222;border-radius:8px;padding:8px}
-        .ywb-preset{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px;border:1px solid #333;border-radius:6px;background:#1a1a1a}
+        .ywb-presets{display:grid;gap:6px;max-height:clamp(118px,22vh,178px);overflow:auto;border:1px solid #444;background:#222;border-radius:8px;padding:8px}
+        .ywb-preset{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:7px 8px;border:1px solid #333;border-radius:6px;background:#1a1a1a}
         .ywb-preset strong{display:block;color:#f5f5f5;font-size:13px}
         .ywb-preset small{display:block;color:#aaa;font-size:11px;margin-top:2px}
         .ywb-empty{color:#aaa;padding:12px;text-align:center}
         .ywb-note{color:#aaa;font-size:12px}
-        #ywbColumnsLog{height:150px;overflow:auto;border:1px solid #444;background:#111;color:#ccc;border-radius:6px;padding:8px;font:11px/1.4 Consolas,"Courier New",monospace;white-space:pre-wrap}
+        .ywb-logs{border:1px solid #444;background:#141414;border-radius:8px;overflow:hidden}
+        .ywb-logs-head{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #333}
+        .ywb-logs-title{display:flex;align-items:center;gap:8px;color:#ffc107;font-weight:800}
+        .ywb-log-count{min-width:22px;height:20px;border:1px solid #5f4b00;border-radius:999px;display:inline-grid;place-items:center;color:#aaa;font-size:11px;font-weight:700}
+        .ywb-log-last{grid-column:1/-1;min-width:0;color:#aaa;font:11px/1.35 Consolas,"Courier New",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        #ywbColumnsLogToggle{border:1px solid #ffc107;background:#2a2a2a;color:#ffc107;border-radius:6px;padding:6px 10px;font-weight:800;cursor:pointer}
+        #ywbColumnsLogToggle:hover{background:#ffc107;color:#111}
+        .ywb-log-body{display:none;border-top:1px solid #222}
+        .ywb-logs.open .ywb-log-body{display:block}
+        #ywbColumnsLog{height:120px;overflow:auto;background:#101010;color:#ccc;padding:8px;font:11px/1.4 Consolas,"Courier New",monospace;white-space:pre-wrap}
         .ywb-log-row.success{color:#9ef59e}.ywb-log-row.error{color:#ff9e9e}.ywb-log-row.warning{color:#ffd86b}
-        @media(max-width:720px){#ywbColumnsManager{inset:10px}.ywb-shell{width:calc(100vw - 20px)}.ywb-row{flex-direction:column;align-items:stretch}.ywb-row button,.ywb-file,#ywbColumnsRefresh{width:100%}}
+        @media(max-width:720px){#ywbColumnsManager{padding:10px}.ywb-shell{width:calc(100vw - 20px);max-height:calc(100vh - 20px)}.ywb-row{flex-direction:column;align-items:stretch}.ywb-row button,.ywb-file,#ywbColumnsRefresh{width:100%}.ywb-head h2{font-size:18px}.ywb-build{display:block;margin:2px 0 0}}
       </style>
       <div class="ywb-shell">
         <div class="ywb-head">
@@ -522,45 +545,60 @@
           </div>
           <button class="ywb-close" title="Close">&#x2715;</button>
         </div>
-        <div class="ywb-body">
-          <div class="ywb-tabs">
-            <button class="ywb-tab active" data-tab="export">Export</button>
-            <button class="ywb-tab" data-tab="import">Import</button>
-          </div>
-
-          <div class="ywb-panel" data-panel="export">
-            <label class="ywb-field">
-              <span>Account</span>
-              <select id="ywbColumnsExportAccount">${renderAccountOptions(state.exportAccountId)}</select>
-            </label>
-            <div class="ywb-presets-head">
-              <label class="ywb-check"><input id="ywbColumnsSelectAll" type="checkbox"> select all presets</label>
-              <button id="ywbColumnsRefresh" type="button">Refresh</button>
+        <div class="ywb-content">
+          <div class="ywb-body">
+            <div class="ywb-tabs">
+              <button class="ywb-tab active" data-tab="export">Export</button>
+              <button class="ywb-tab" data-tab="import">Import</button>
             </div>
-            <div id="ywbColumnsPresets" class="ywb-presets">${renderPresetList()}</div>
-            <div class="ywb-row">
-              <button class="primary" id="ywbColumnsExport">Export selected</button>
-            </div>
-          </div>
 
-          <div class="ywb-panel" data-panel="import" hidden>
-            <label class="ywb-field">
-              <span>Account</span>
-              <select id="ywbColumnsImportAccount">${renderAccountOptions(state.importAccountId)}</select>
-            </label>
-            <div class="ywb-row">
-              <label class="ywb-file primary">Import JSON<input id="ywbColumnsFile" type="file" accept=".json,application/json" hidden></label>
-              <label class="ywb-check"><input id="ywbColumnsClear" type="checkbox"> clear existing first</label>
+            <div class="ywb-panel" data-panel="export">
+              <label class="ywb-field">
+                <span>Account</span>
+                <select id="ywbColumnsExportAccount">${renderAccountOptions(state.exportAccountId)}</select>
+              </label>
+              <div class="ywb-presets-head">
+                <label class="ywb-check"><input id="ywbColumnsSelectAll" type="checkbox"> select all presets</label>
+                <button id="ywbColumnsRefresh" type="button">Refresh</button>
+              </div>
+              <div id="ywbColumnsPresets" class="ywb-presets">${renderPresetList()}</div>
+              <div class="ywb-row">
+                <button class="primary" id="ywbColumnsExport">Export selected</button>
+              </div>
             </div>
-            <div id="ywbColumnsPackageInfo" class="ywb-note">Choose JSON during import; no separate load step needed.</div>
-          </div>
 
-          <div id="ywbColumnsLog"></div>
+            <div class="ywb-panel" data-panel="import" hidden>
+              <label class="ywb-field">
+                <span>Account</span>
+                <select id="ywbColumnsImportAccount">${renderAccountOptions(state.importAccountId)}</select>
+              </label>
+              <div class="ywb-row">
+                <label class="ywb-file primary">Import JSON<input id="ywbColumnsFile" type="file" accept=".json,application/json" hidden></label>
+                <label class="ywb-check"><input id="ywbColumnsClear" type="checkbox"> clear existing first</label>
+              </div>
+              <div id="ywbColumnsPackageInfo" class="ywb-note">Choose JSON during import; no separate load step needed.</div>
+            </div>
+
+            <section class="ywb-logs" id="ywbColumnsLogs">
+              <div class="ywb-logs-head">
+                <div class="ywb-logs-title">Logs <span class="ywb-log-count" id="ywbColumnsLogCount">0</span></div>
+                <button id="ywbColumnsLogToggle" type="button" aria-expanded="false">Show logs</button>
+                <div class="ywb-log-last" id="ywbColumnsLogLast">No log entries yet.</div>
+              </div>
+              <div class="ywb-log-body">
+                <div id="ywbColumnsLog"></div>
+              </div>
+            </section>
+          </div>
         </div>
       </div>`;
     document.body.appendChild(root);
 
     root.querySelector(".ywb-close").onclick = () => root.remove();
+    root.querySelector("#ywbColumnsLogToggle").onclick = () => {
+      state.logsOpen = !state.logsOpen;
+      renderUiState();
+    };
     root.querySelectorAll("[data-tab]").forEach((button) => {
       button.onclick = () => {
         state.activeTab = button.dataset.tab || "export";
