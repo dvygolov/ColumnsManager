@@ -2,11 +2,14 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b1",
+    VERSION: "250526b2",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
   };
+  const APP_ID = "ywbColumnsManager";
+  const APP_TITLE = "Columns Manager";
+  const APP_MARK_SVG = `<svg class="ywb-mark" viewBox="0 0 96 96" aria-hidden="true"><defs><linearGradient id="${APP_ID}-gold" x1="0%" x2="100%" y1="0%" y2="100%"><stop offset="0%" stop-color="#ffe16a"/><stop offset="55%" stop-color="#ffd000"/><stop offset="100%" stop-color="#ffab00"/></linearGradient></defs><rect x="4" y="4" width="88" height="88" rx="22" fill="#151515" stroke="url(#${APP_ID}-gold)" stroke-width="6"/><text x="48" y="59" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="900" letter-spacing="-2" fill="url(#${APP_ID}-gold)">CM</text></svg>`;
 
   if (window.__ColumnsManagerPayloadBuild === Config.VERSION && typeof window.showColumnsManager === "function") {
     window.showColumnsManager();
@@ -78,6 +81,26 @@
 
   function getPresetKey(preset, index) {
     return String(preset?.id || `${index}:${preset?.name || "Columns preset"}`);
+  }
+
+  function safeFileName(value, fallback = "columns-preset") {
+    const name = String(value || fallback)
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[<>:"/\\|?*\x00-\x1F]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[. ]+$/g, "");
+    return (name || fallback).slice(0, 96);
+  }
+
+  function buildExportFileName(accountId, selectedPresets) {
+    if (selectedPresets.length === 1) {
+      return `${safeFileName(selectedPresets[0].name)}.json`;
+    }
+    const names = selectedPresets.slice(0, 3).map((preset) => safeFileName(preset.name, "preset"));
+    const suffix = selectedPresets.length > 3 ? ` and ${selectedPresets.length - 3} more` : "";
+    return `${safeFileName(names.join(" + ") + suffix, `columns act_${accountId}`)}.json`;
   }
 
   function log(message, type = "info") {
@@ -306,7 +329,7 @@
     };
     state.package = pack;
     localStorage.setItem(Config.CACHE_KEY, JSON.stringify(pack));
-    downloadJson(`columns_${cleanId}_${new Date().toISOString().slice(0, 10)}.json`, pack);
+    downloadJson(buildExportFileName(cleanId, selectedPresets), pack);
     log(`Exported ${pack.presets.length} selected preset(s).`, "success");
     renderUiState();
     return pack;
@@ -452,42 +475,52 @@
     root.id = "ywbColumnsManager";
     root.innerHTML = `
       <style>
-        #ywbColumnsManager{position:fixed;inset:18px;z-index:2147483647;pointer-events:none;font:14px/1.45 "Segoe UI",Verdana,sans-serif;color:#f8f0c8}
+        #ywbColumnsManager{position:fixed;inset:18px;z-index:2147483647;pointer-events:none;font:14px/1.45 "Segoe UI","Trebuchet MS",sans-serif;color:#f5f5f5}
         #ywbColumnsManager *{box-sizing:border-box}
-        #ywbColumnsManager .ywb-shell{width:min(720px,calc(100vw - 36px));max-height:calc(100vh - 36px);margin:0 auto;background:#181818;border:2px solid #ffd000;border-radius:10px;box-shadow:0 24px 80px #000a;overflow:hidden;pointer-events:auto}
-        .ywb-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:#ffd000;color:#111;font-weight:900}
-        .ywb-title{display:flex;align-items:baseline;gap:8px;font-size:18px}
-        .ywb-build{font-size:12px;font-weight:700;opacity:.72}
-        .ywb-close{border:0;background:#111;color:#ffd000;width:30px;height:30px;border-radius:6px;font-weight:900;cursor:pointer}
-        .ywb-body{padding:14px 16px;display:grid;gap:12px;overflow:auto;max-height:calc(100vh - 98px)}
+        #ywbColumnsManager .ywb-shell{position:relative;width:min(680px,calc(100vw - 36px));max-height:calc(100vh - 36px);margin:0 auto;background:#1a1a1a;border:2px solid #ffc107;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.7);padding:18px;overflow:auto;pointer-events:auto}
+        .ywb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+        .ywb-title-row{display:inline-flex;align-items:center;gap:10px}
+        .ywb-mark{width:34px;height:34px;display:block;flex:0 0 auto;filter:drop-shadow(0 6px 14px rgba(255,193,7,.18))}
+        .ywb-head h2{margin:0;color:#ffc107;font-size:22px;line-height:1.1;letter-spacing:.02em}
+        .ywb-build{font-size:12px;font-weight:600;color:#aaa;vertical-align:middle;margin-left:4px}
+        .ywb-byline{display:block;font-size:12px;color:#ffc107;text-decoration:none;opacity:.7;margin-top:2px}
+        .ywb-byline:hover{opacity:1;text-decoration:underline}
+        .ywb-close{border:1px solid #ffc107;background:#2a2a2a;color:#ffc107;width:34px;height:34px;border-radius:6px;font-weight:900;cursor:pointer}
+        .ywb-close:hover{background:#ffc107;color:#111}
+        .ywb-body{display:grid;gap:14px;overflow:visible}
         .ywb-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        .ywb-tab{border:1px solid #504714;background:#111;color:#f8f0c8;border-radius:7px;padding:10px 12px;font-weight:800;cursor:pointer}
-        .ywb-tab.active{background:#ffd000;color:#111;border-color:#ffd000}
+        .ywb-tab{border:1px solid #444;background:#2a2a2a;color:#f5f5f5;border-radius:6px;padding:10px 12px;font-weight:800;cursor:pointer}
+        .ywb-tab.active{background:#ffc107;color:#111;border-color:#ffc107}
         .ywb-panel{display:grid;gap:12px}
         .ywb-panel[hidden]{display:none}
         .ywb-field{display:grid;gap:5px}
-        .ywb-field span{color:#c6bda0;font-size:12px}
-        .ywb-field select{width:100%;border:1px solid #504714;border-radius:7px;background:#111;color:#f8f0c8;padding:10px}
+        .ywb-field span{color:#aaa;font-size:12px}
+        .ywb-field select{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:10px 12px;font-size:14px}
         .ywb-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-        .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffd000;background:#282300;color:#ffd000;border-radius:7px;padding:10px 12px;font-weight:800;cursor:pointer}
-        .ywb-row button.primary,.ywb-file.primary{background:#ffd000;color:#111}
+        .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffc107;background:#ffc107;color:#111;border-radius:6px;padding:10px 12px;font-weight:800;cursor:pointer}
+        .ywb-row button.primary,.ywb-file.primary{background:#ffc107;color:#111}
+        #ywbColumnsRefresh{background:#2a2a2a;color:#ffc107}
+        .ywb-row button:hover:not(:disabled),.ywb-file:hover,#ywbColumnsRefresh:hover{filter:brightness(1.08)}
         .ywb-row button:disabled,.ywb-file.disabled{opacity:.48;cursor:not-allowed}
-        .ywb-check{display:flex;gap:8px;align-items:center;color:#c6bda0}
-        .ywb-presets-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#c6bda0;border-bottom:1px solid #403810;padding-bottom:8px}
-        .ywb-presets{display:grid;gap:6px;max-height:220px;overflow:auto;border:1px solid #403810;background:#101010;border-radius:7px;padding:8px}
-        .ywb-preset{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px;border:1px solid #28220c;border-radius:7px;background:#171717}
-        .ywb-preset strong{display:block;color:#fff3bc;font-size:13px}
-        .ywb-preset small{display:block;color:#988f78;font-size:11px;margin-top:2px}
-        .ywb-empty{color:#988f78;padding:12px;text-align:center}
-        .ywb-note{color:#988f78;font-size:12px}
-        #ywbColumnsLog{height:160px;overflow:auto;border:1px solid #403810;background:#101010;border-radius:7px;padding:8px;font:12px/1.45 Consolas,monospace}
+        .ywb-check{display:flex;gap:8px;align-items:center;color:#aaa}
+        .ywb-presets-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#aaa;border-bottom:1px solid #444;padding-bottom:8px}
+        .ywb-presets{display:grid;gap:6px;max-height:220px;overflow:auto;border:1px solid #444;background:#222;border-radius:8px;padding:8px}
+        .ywb-preset{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:8px;border:1px solid #333;border-radius:6px;background:#1a1a1a}
+        .ywb-preset strong{display:block;color:#f5f5f5;font-size:13px}
+        .ywb-preset small{display:block;color:#aaa;font-size:11px;margin-top:2px}
+        .ywb-empty{color:#aaa;padding:12px;text-align:center}
+        .ywb-note{color:#aaa;font-size:12px}
+        #ywbColumnsLog{height:150px;overflow:auto;border:1px solid #444;background:#111;color:#ccc;border-radius:6px;padding:8px;font:11px/1.4 Consolas,"Courier New",monospace;white-space:pre-wrap}
         .ywb-log-row.success{color:#9ef59e}.ywb-log-row.error{color:#ff9e9e}.ywb-log-row.warning{color:#ffd86b}
-        @media(max-width:720px){#ywbColumnsManager{inset:12px}.ywb-title{font-size:16px}.ywb-body{max-height:calc(100vh - 86px)}}
+        @media(max-width:720px){#ywbColumnsManager{inset:10px}.ywb-shell{width:calc(100vw - 20px)}.ywb-row{flex-direction:column;align-items:stretch}.ywb-row button,.ywb-file,#ywbColumnsRefresh{width:100%}}
       </style>
       <div class="ywb-shell">
         <div class="ywb-head">
-          <div class="ywb-title">Columns Manager <span class="ywb-build">build ${escapeHtml(Config.VERSION)}</span></div>
-          <button class="ywb-close" title="Close">X</button>
+          <div>
+            <div class="ywb-title-row">${APP_MARK_SVG}<h2>${APP_TITLE} <span class="ywb-build">build ${escapeHtml(Config.VERSION)}</span></h2></div>
+            <a class="ywb-byline" href="https://yellowweb.top" target="_blank" rel="noopener">by Yellow Web</a>
+          </div>
+          <button class="ywb-close" title="Close">&#x2715;</button>
         </div>
         <div class="ywb-body">
           <div class="ywb-tabs">
