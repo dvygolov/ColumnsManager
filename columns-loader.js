@@ -306,7 +306,9 @@
   };
   const executePayload = (source, build) => new Promise((resolve, reject) => {
     const blob = new Blob([
+      "(function(){\n\"use strict\";\n",
       source,
+      "\n}).call(window);",
       `\n//# sourceURL=columnsmanager://${build}/payload.js`,
     ], { type: "application/javascript" });
     const blobUrl = URL.createObjectURL(blob);
