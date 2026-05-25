@@ -2,12 +2,14 @@
   "app": "ColumnsManager",
   "build": "250526b2",
   "version": "250526b2",
-  "generatedAt": "2026-05-25T10:37:31.915Z",
+  "generatedAt": "2026-05-25T10:49:53.588Z",
   "payload": {
     "encoding": "base64",
     "sha256": "2b85760ca539c87f962fa36ded8e1c7a7a21efc041cb2e147768d03a89159c6f",
     "byteLength": 28103
   },
+  "payloadUrl": "https://columnsmanager.pages.dev/columns/250526b2/payload.js",
+  "latestPayloadUrl": "https://columnsmanager.pages.dev/columns/latest/payload.js",
   "chunks": [
     {
       "index": 1,
@@ -22,8 +24,6 @@
   "source": "columns-manager.js",
   "chunkSize": 350000,
   "payloadFile": "payload.js",
-  "payloadUrl": "https://columnsmanager.pages.dev/columns/250526b2/payload.js",
-  "latestPayloadUrl": "https://columnsmanager.pages.dev/columns/latest/payload.js",
   "manifestFile": "manifest.html",
   "manifestUrl": "https://columnsmanager.pages.dev/columns/250526b2/manifest.html",
   "latestManifestUrl": "https://columnsmanager.pages.dev/columns/latest/manifest.html"

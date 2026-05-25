@@ -500,6 +500,8 @@ function main() {
       sha256: sha256Hex(source),
       byteLength: Buffer.byteLength(source, "utf8"),
     },
+    payloadUrl: publicUrl(`${build}/payload.js`),
+    latestPayloadUrl: publicUrl("latest/payload.js"),
     chunks: chunks.map((chunk, index) => ({
       index: index + 1,
       file: `og/chunk-${String(index + 1).padStart(3, "0")}.html`,

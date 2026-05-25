@@ -139,7 +139,7 @@
     if (!cached) {
       return null;
     }
-    const warning = `Cannot load latest payload from Facebook OG: ${reason}. Using cached ${cached.version}.`;
+    const warning = `Cannot load latest payload: ${reason}. Using cached ${cached.version}.`;
     console.warn(`[${loaderConfig.app} loader] ${warning}`);
     window[guardKey].warning = warning;
     window[guardKey].source = sourceTag;
@@ -229,7 +229,34 @@
       source,
       actualSha256,
       manifestSha256: manifest?.payload?.sha256 || "",
+      sourceTag: "remote",
     };
+  };
+  const fetchDirectPayload = async (manifest) => {
+    const payloadUrl = manifest.latestPayloadUrl || manifest.payloadUrl || "";
+    if (!payloadUrl) {
+      throw new Error("Manifest does not contain a Cloudflare payload URL.");
+    }
+    const response = await withTimeout(fetch(payloadUrl, { cache: "no-store", credentials: "omit" }), payloadUrl);
+    const source = await response.text();
+    if (!response.ok) {
+      throw new Error("Cloudflare payload " + response.status + ": " + source.slice(0, 180));
+    }
+    const actualSha256 = await sha256Hex(source);
+    return {
+      source,
+      actualSha256,
+      manifestSha256: manifest?.payload?.sha256 || "",
+      sourceTag: "cloudflare",
+    };
+  };
+  const fetchLatestPayload = async (manifest) => {
+    try {
+      return await fetchDirectPayload(manifest);
+    } catch (directError) {
+      console.warn("[" + loaderConfig.app + " loader] Cloudflare payload fetch failed, trying Facebook OG fallback.", directError);
+      return fetchOgPayload(manifest);
+    }
   };
   const loadPayload = async () => {
     const cached = readCache();
@@ -256,7 +283,7 @@
       return { source: cached.source, build: cached.version };
     }
     try {
-      const payload = await fetchOgPayload(manifest);
+      const payload = await fetchLatestPayload(manifest);
       if (payload.manifestSha256 && payload.actualSha256 !== payload.manifestSha256) {
         console.warn(
           `[${loaderConfig.app} loader] Remote payload checksum mismatch for ${manifest.version}: ${payload.actualSha256} !== ${payload.manifestSha256}. Continuing because version ${manifest.version} is authoritative.`
@@ -266,8 +293,8 @@
         }
       }
       writeCache(manifest, payload.source, payload.actualSha256);
-      log(`downloaded and cached ${manifest.version}`);
-      window[guardKey].source = "remote";
+      window[guardKey].source = payload.sourceTag || "remote";
+      log(`downloaded and cached ${manifest.version} from ${window[guardKey].source}`);
       return { source: payload.source, build: manifest.version };
     } catch (error) {
       const fallback = useCachedPayload(cached, `payload fetch failed (${error?.message || error})`, "cache-remote-failed");
