@@ -442,15 +442,13 @@ function buildLandingHtml({ appName, displayName = appName, build, bookmarklet, 
 }
 
 function buildBookmarkletLoader(loaderManifest) {
+  const loaderSource = fs.readFileSync(LOADER_SOURCE, "utf8").trim();
   const configJson = JSON.stringify({
-    a: loaderManifest.app,
-    v: loaderManifest.version,
-    s: loaderManifest.payload.sha256,
-    b: loaderManifest.payload.byteLength,
-    u: loaderManifest.chunks.map((chunk) => chunk.url),
-    k: "columnsmanager.loader.cache.v1",
+    app: loaderManifest.app,
+    manifestUrl: loaderManifest.latestManifestUrl,
+    cacheKey: "columnsmanager.loader.cache.v1",
   });
-  return `(async c=>{const G="__ColumnsManagerLoader",D=document,A="ColumnsManager";let box;const show=(m,e)=>{box=box||D.body.appendChild(Object.assign(D.createElement("div"),{id:"ywbColumnsLoaderStatus"}));box.textContent=m;box.style.cssText="position:fixed;right:18px;bottom:18px;z-index:2147483647;background:#fff200;color:#111;border:2px solid #111;border-radius:10px;padding:12px 14px;font:700 13px Verdana,sans-serif;box-shadow:0 8px 24px #0005;max-width:360px";if(e)box.style.background="#ffd6d6"};try{if(!/(^|\\.)facebook\\.com$/.test(location.hostname)){location.href="https://adsmanager.facebook.com/";return}if(window[G]?.loading)return show(A+" is already loading...");window[G]={loading:true,build:c.v,startedAt:Date.now(),source:""};show(A+" loading "+c.v+"...");const dec=x=>new TextDecoder().decode(Uint8Array.from(atob(String(x||"").replace(/\\s+/g,"")),q=>q.charCodeAt(0))),tok=()=>{if(window.__accessToken)return window.__accessToken;for(const n of performance.getEntriesByType("resource").map(x=>x.name||""))if(n.includes("adsmanager-graph.facebook.com")&&n.includes("access_token="))try{const t=new URL(n).searchParams.get("access_token");if(t)return t}catch(e){}return""},json=async u=>{const r=await fetch(u,{credentials:"include",cache:"no-store"}),t=await r.text();if(!r.ok)throw Error(r.status+" "+t.slice(0,160));return JSON.parse(t.replace(/^for\\s*\\(;;\\);\\s*/,""))},sha=async t=>Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)))).map(b=>b.toString(16).padStart(2,"0")).join(""),run=s=>new Promise((ok,fail)=>{const u=URL.createObjectURL(new Blob([s,"\\n//# sourceURL=columnsmanager://"+c.v+"/payload.js"],{type:"application/javascript"})),j=D.createElement("script");j.src=u;j.onload=()=>{setTimeout(()=>URL.revokeObjectURL(u),1e4);j.remove();ok()};j.onerror=()=>{URL.revokeObjectURL(u);j.remove();fail(Error("Payload injection failed"))};(D.head||D.documentElement).appendChild(j)});let cache;try{cache=JSON.parse(localStorage.getItem(c.k)||"null")}catch(e){}let src=cache?.version===c.v&&cache.source;if(src)window[G].source="cache";else{const t=tok();if(!t)throw Error("Open Ads Manager and wait until it fully loads, then click Columns again.");const enc=encodeURIComponent,ids=await Promise.all(c.u.map(async u=>(await json("https://graph.facebook.com/?id="+enc(u)+"&fields=og_object&access_token="+enc(t)))?.og_object?.id));src=dec((await Promise.all(ids.map(id=>json("https://adsmanager-graph.facebook.com/v23.0/"+enc(id)+"?fields=description&access_token="+enc(t))))).map(o=>o.description||"").join(""));const h=await sha(src);if(c.s&&h!==c.s)throw Error("Payload checksum mismatch for "+c.v);localStorage.setItem(c.k,JSON.stringify({app:A,version:c.v,sha256:h,byteLength:src.length,source:src,savedAt:new Date().toISOString()}));window[G].source="remote"}if(window.__ColumnsManagerPayloadBuild&&window.__ColumnsManagerPayloadBuild!==c.v)throw Error("ColumnsManager "+window.__ColumnsManagerPayloadBuild+" is already loaded. Reload Ads Manager to update to "+c.v+".");if(window.__ColumnsManagerPayloadBuild===c.v&&typeof window.showColumnsManager=="function"){await window.showColumnsManager();window[G].source="existing"}else await run(src);window[G].loading=false;window[G].finishedAt=Date.now();show(A+" loaded "+c.v+" from "+window[G].source);setTimeout(()=>box?.remove(),2500)}catch(e){if(window[G]){window[G].loading=false;window[G].error=String(e?.message||e)}console.error("["+A+" loader] Failed.",e);show(A+" failed: "+(e?.message||e),true);alert(A+" failed: "+(e?.message||e))}})(${configJson})`;
+  return `${loaderSource.replace(/\)\(\);?\s*$/, `)(${configJson});`)}`;
 }
 
 function main() {
@@ -536,6 +534,7 @@ function main() {
     version: build,
     generatedAt,
     payload: manifest.payload,
+    latestManifestUrl: packageInfo.latestManifestUrl,
     chunks: manifest.chunks.map((chunk) => ({
       index: chunk.index,
       latestUrl: chunk.url,
