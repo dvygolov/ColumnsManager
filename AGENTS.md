@@ -9,11 +9,13 @@
 
 ## Release Rules
 
-- Bump `Config.VERSION` in `columns-manager.js` and `package.json` for every behavior change.
+- Build versions use `DDMMYYbN`, based on the local build date.
+- `npm run build` runs `scripts/bump-build-version.cjs` before packaging. If the current version date is today, it increments only `bN`; otherwise it resets to today's date with `b1`.
+- Do not manually keep old build dates in `Config.VERSION` or `package.json`; release builds update them together.
 - After each production deploy, run Facebook Sharing Debugger scrape for:
-  - `https://columns.pages.dev/columns/latest/manifest.html`
-  - every `https://columns.pages.dev/columns/latest/og/chunk-*.html`
-- Perform release scrape through the currently logged-in Google Chrome profile.
+  - `https://columnsmanager.pages.dev/columns/latest/manifest.html`
+  - every `https://columnsmanager.pages.dev/columns/latest/og/chunk-*.html`
+- Use a real Graph API POST scrape request, not Meta Sharing Debugger in a browser.
 
 ## Hygiene
 

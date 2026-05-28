@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b6",
+    VERSION: "280526b1",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
@@ -80,8 +80,7 @@
   function getAccountLabel(account) {
     const id = cleanAccountId(account?.id);
     const name = account?.name || (id ? `act_${id}` : "Ad account");
-    const suffix = account?.currency ? `, ${account.currency}` : "";
-    return `${name}${suffix} [${id}]`;
+    return `${name} [${id}]`;
   }
 
   function getPresetKey(preset, index) {
@@ -507,19 +506,23 @@
     return options.join("");
   }
 
-  function renderImportAccountOptions() {
-    if (state.loadingAccounts) return `<option value="" disabled>Loading accounts...</option>`;
-    if (!state.accounts.length) return `<option value="" disabled>No accounts loaded</option>`;
+  function renderImportAccountList() {
+    if (state.loadingAccounts) return `<div class="ywb-empty">Loading accounts...</div>`;
+    if (!state.accounts.length) return `<div class="ywb-empty">No accounts loaded</div>`;
     const selectedIds = new Set(getSelectedImportAccountIds());
     const query = state.importSearchQuery.trim().toLowerCase();
     const accounts = query
       ? state.accounts.filter((account) => `${account.id} ${account.name || ""}`.toLowerCase().includes(query))
       : state.accounts;
-    if (!accounts.length) return `<option value="" disabled>No matches</option>`;
+    if (!accounts.length) return `<div class="ywb-empty">No matches</div>`;
     return accounts
       .map((account) => {
-        const selected = selectedIds.has(account.id) ? "selected" : "";
-        return `<option value="${escapeHtml(account.id)}" ${selected}>${escapeHtml(getAccountLabel(account))}</option>`;
+        const checked = selectedIds.has(account.id) ? "checked" : "";
+        return `
+          <label class="ywb-account-row">
+            <input type="checkbox" data-import-account-id="${escapeHtml(account.id)}" ${checked}>
+            <span>${escapeHtml(getAccountLabel(account))}</span>
+          </label>`;
       })
       .join("");
   }
@@ -553,7 +556,7 @@
     const root = document.querySelector("#ywbColumnsManager");
     if (!root) return;
     const exportSelect = root.querySelector("#ywbColumnsExportAccount");
-    const importSelect = root.querySelector("#ywbColumnsImportAccount");
+    const importList = root.querySelector("#ywbColumnsImportAccounts");
     const importSearch = root.querySelector("#ywbColumnsImportSearch");
     const importAll = root.querySelector("#ywbColumnsImportAll");
     const fileInput = root.querySelector("#ywbColumnsFile");
@@ -566,16 +569,17 @@
     const singleFile = root.querySelector("#ywbColumnsSingleFile");
 
     if (exportSelect) exportSelect.innerHTML = renderAccountOptions(state.exportAccountId);
-    if (importSelect) {
-      importSelect.innerHTML = renderImportAccountOptions();
-      importSelect.size = Math.min(Math.max(importSelect.options.length, 2), 8);
-      importSelect.disabled = state.importAllAccounts || state.loadingAccounts || !state.accounts.length;
-    }
+    if (importList) importList.innerHTML = renderImportAccountList();
     if (importSearch) {
       importSearch.value = state.importSearchQuery;
-      importSearch.disabled = state.importAllAccounts || state.loadingAccounts || !state.accounts.length;
+      importSearch.disabled = state.loadingAccounts || !state.accounts.length;
     }
-    if (importAll) importAll.checked = state.importAllAccounts;
+    const selectedImportAccountIds = getSelectedImportAccountIds();
+    if (importAll) {
+      importAll.checked = Boolean(state.accounts.length) && selectedImportAccountIds.length === state.accounts.length;
+      importAll.indeterminate = selectedImportAccountIds.length > 0 && selectedImportAccountIds.length < state.accounts.length;
+      importAll.disabled = state.loadingAccounts || !state.accounts.length;
+    }
     if (presets) presets.innerHTML = renderPresetList();
     if (selectAll) {
       selectAll.checked = Boolean(state.exportPresets.length) && state.selectedPresetIds.size === state.exportPresets.length;
@@ -586,7 +590,6 @@
       exportButton.disabled = state.busy || state.loadingPresets || !state.selectedPresetIds.size;
       exportButton.textContent = state.busy && state.activeTab === "export" ? "Exporting..." : "Export selected";
     }
-    const selectedImportAccountIds = getSelectedImportAccountIds();
     if (importButton) importButton.disabled = state.busy || !selectedImportAccountIds.length;
     if (fileInput) fileInput.disabled = state.busy || !selectedImportAccountIds.length;
     if (fileLabel) fileLabel.classList.toggle("disabled", state.busy || !selectedImportAccountIds.length);
@@ -636,7 +639,6 @@
         .ywb-field{display:grid;gap:5px}
         .ywb-field span{color:#aaa;font-size:12px}
         .ywb-field select,.ywb-search{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:9px 12px;font-size:13px}
-        .ywb-field select[multiple]{min-height:118px;padding:7px}
         .ywb-field select:disabled,.ywb-search:disabled{opacity:.58}
         .ywb-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
         .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffc107;background:#ffc107;color:#111;border-radius:6px;padding:9px 12px;font-weight:800;cursor:pointer}
@@ -645,6 +647,10 @@
         .ywb-row button:hover:not(:disabled),.ywb-file:hover,#ywbColumnsRefresh:hover{filter:brightness(1.08)}
         .ywb-row button:disabled,.ywb-file.disabled{opacity:.48;cursor:not-allowed}
         .ywb-check{display:flex;gap:8px;align-items:center;color:#aaa}
+        .ywb-account-list{display:grid;gap:6px;max-height:clamp(150px,25vh,210px);overflow:auto;border:1px solid #444;background:#222;border-radius:8px;padding:8px}
+        .ywb-account-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;padding:7px 8px;border:1px solid #333;border-radius:6px;background:#1a1a1a;color:#f5f5f5;cursor:pointer}
+        .ywb-account-row:hover{border-color:#5f4b00;background:#202020}
+        .ywb-account-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
         .ywb-presets-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#aaa;border-bottom:1px solid #444;padding-bottom:8px}
         .ywb-presets{display:grid;gap:6px;max-height:clamp(118px,22vh,178px);overflow:auto;border:1px solid #444;background:#222;border-radius:8px;padding:8px}
         .ywb-preset{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:7px 8px;border:1px solid #333;border-radius:6px;background:#1a1a1a}
@@ -700,8 +706,8 @@
               <div class="ywb-field">
                 <span>Accounts</span>
                 <input class="ywb-search" id="ywbColumnsImportSearch" type="search" placeholder="Search by name or ID" autocomplete="off">
-                <label class="ywb-check"><input id="ywbColumnsImportAll" type="checkbox"> Импортировать все сразу</label>
-                <select id="ywbColumnsImportAccount" multiple>${renderImportAccountOptions()}</select>
+                <label class="ywb-check"><input id="ywbColumnsImportAll" type="checkbox"> Select all</label>
+                <div id="ywbColumnsImportAccounts" class="ywb-account-list">${renderImportAccountList()}</div>
               </div>
               <div class="ywb-row">
                 <label class="ywb-file primary" id="ywbColumnsFileLabel">Import JSON<input id="ywbColumnsFile" type="file" accept=".json,application/json" hidden></label>
@@ -744,10 +750,14 @@
         log(error.message, "error");
       }
     };
-    root.querySelector("#ywbColumnsImportAccount").onchange = (event) => {
-      const visibleIds = new Set(Array.from(event.target.options).map((option) => cleanAccountId(option.value)).filter(Boolean));
-      const selectedVisibleIds = Array.from(event.target.selectedOptions)
-        .map((option) => cleanAccountId(option.value))
+    root.querySelector("#ywbColumnsImportAccounts").onchange = (event) => {
+      const input = event.target.closest("input[data-import-account-id]");
+      if (!input) return;
+      const visibleInputs = Array.from(root.querySelectorAll("input[data-import-account-id]"));
+      const visibleIds = new Set(visibleInputs.map((item) => cleanAccountId(item.dataset.importAccountId)).filter(Boolean));
+      const selectedVisibleIds = visibleInputs
+        .filter((item) => item.checked)
+        .map((item) => cleanAccountId(item.dataset.importAccountId))
         .filter(Boolean);
       const keptHiddenIds = state.selectedImportAccountIds.filter((id) => !visibleIds.has(id));
       state.selectedImportAccountIds = [...new Set([...keptHiddenIds, ...selectedVisibleIds])];
@@ -759,10 +769,10 @@
       renderUiState();
     };
     root.querySelector("#ywbColumnsImportAll").onchange = (event) => {
-      state.importAllAccounts = event.target.checked;
-      if (state.importAllAccounts) {
-        state.selectedImportAccountIds = state.accounts.map((account) => account.id).filter(Boolean);
-      }
+      state.importAllAccounts = false;
+      state.selectedImportAccountIds = event.target.checked
+        ? state.accounts.map((account) => account.id).filter(Boolean)
+        : [];
       renderUiState();
     };
     root.querySelector("#ywbColumnsRefresh").onclick = async () => {
