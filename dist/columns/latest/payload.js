@@ -2,10 +2,11 @@
   "use strict";
 
   const Config = {
-    VERSION: "250526b5",
+    VERSION: "250526b6",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
+    ACCOUNT_DELAY_MS: 800,
   };
   const APP_ID = "ywbColumnsManager";
   const APP_TITLE = "Columns Manager";
@@ -20,7 +21,9 @@
   const state = {
     accounts: [],
     exportAccountId: "",
-    importAccountId: "",
+    selectedImportAccountIds: [],
+    importSearchQuery: "",
+    importAllAccounts: false,
     exportPresets: [],
     selectedPresetIds: new Set(),
     loadedPresetAccountId: "",
@@ -260,7 +263,10 @@
       );
       const currentAccountId = getCurrentAccountId();
       if (!state.exportAccountId) state.exportAccountId = currentAccountId || state.accounts[0]?.id || "";
-      if (!state.importAccountId) state.importAccountId = currentAccountId || state.accounts[0]?.id || "";
+      if (!state.selectedImportAccountIds.length) {
+        const defaultImportAccountId = currentAccountId || state.accounts[0]?.id || "";
+        state.selectedImportAccountIds = defaultImportAccountId ? [defaultImportAccountId] : [];
+      }
       log(`Loaded ${state.accounts.length} account(s).`, "success");
       return state.accounts;
     } finally {
@@ -443,18 +449,50 @@
     return importPresetsToAccount(accountId, pack, clearExisting);
   }
 
-  async function importSelectedJson(file, accountId, clearExisting) {
+  function getSelectedImportAccountIds() {
+    if (state.importAllAccounts) return state.accounts.map((account) => account.id).filter(Boolean);
+    const existing = new Set(state.accounts.map((account) => account.id));
+    return state.selectedImportAccountIds.filter((id) => existing.has(id));
+  }
+
+  async function delay(ms) {
+    if (!ms) return;
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function importSelectedJson(file, accountIds, clearExisting) {
     if (!file) return null;
-    const cleanId = cleanAccountId(accountId);
-    if (!cleanId) throw new Error("Choose an import account first.");
+    const cleanIds = [...new Set((accountIds || []).map(cleanAccountId).filter(Boolean))];
+    if (!cleanIds.length) throw new Error("Choose at least one import account first.");
     const pack = await readJsonFile(file);
     if (!pack?.presets?.length) throw new Error("Selected JSON has no presets.");
     state.package = pack;
     localStorage.setItem(Config.CACHE_KEY, JSON.stringify(pack));
-    log(`Importing ${pack.presets.length} preset(s) from ${file.name}...`);
-    const result = await importPresetsToAccount(cleanId, pack, clearExisting);
+    log(`Importing ${pack.presets.length} preset(s) from ${file.name} to ${cleanIds.length} account(s)...`);
+    const results = [];
+    for (let index = 0; index < cleanIds.length; index += 1) {
+      const accountId = cleanIds[index];
+      log(`Processing act_${accountId} (${index + 1}/${cleanIds.length})...`);
+      try {
+        results.push(await importPresetsToAccount(accountId, pack, clearExisting));
+      } catch (error) {
+        log(`Failed to import into act_${accountId}: ${error.message}`, "error");
+        results.push({ accountId, imported: 0, total: pack.presets.length, error: error.message });
+      }
+      if (index < cleanIds.length - 1) {
+        log(`Waiting ${Config.ACCOUNT_DELAY_MS}ms before next account...`);
+        await delay(Config.ACCOUNT_DELAY_MS);
+      }
+    }
+    const successful = results.filter((result) => result.imported === result.total && result.total > 0).length;
+    const partial = results.filter((result) => result.imported > 0 && result.imported < result.total).length;
+    const failed = results.length - successful - partial;
+    log(
+      `Import summary: ${results.length} account(s), ${successful} successful, ${partial} partial, ${failed} failed.`,
+      failed ? "warning" : "success",
+    );
     renderUiState();
-    return result;
+    return results;
   }
 
   function renderAccountOptions(selectedId) {
@@ -467,6 +505,23 @@
       );
     }
     return options.join("");
+  }
+
+  function renderImportAccountOptions() {
+    if (state.loadingAccounts) return `<option value="" disabled>Loading accounts...</option>`;
+    if (!state.accounts.length) return `<option value="" disabled>No accounts loaded</option>`;
+    const selectedIds = new Set(getSelectedImportAccountIds());
+    const query = state.importSearchQuery.trim().toLowerCase();
+    const accounts = query
+      ? state.accounts.filter((account) => `${account.id} ${account.name || ""}`.toLowerCase().includes(query))
+      : state.accounts;
+    if (!accounts.length) return `<option value="" disabled>No matches</option>`;
+    return accounts
+      .map((account) => {
+        const selected = selectedIds.has(account.id) ? "selected" : "";
+        return `<option value="${escapeHtml(account.id)}" ${selected}>${escapeHtml(getAccountLabel(account))}</option>`;
+      })
+      .join("");
   }
 
   function renderPresetList() {
@@ -499,6 +554,10 @@
     if (!root) return;
     const exportSelect = root.querySelector("#ywbColumnsExportAccount");
     const importSelect = root.querySelector("#ywbColumnsImportAccount");
+    const importSearch = root.querySelector("#ywbColumnsImportSearch");
+    const importAll = root.querySelector("#ywbColumnsImportAll");
+    const fileInput = root.querySelector("#ywbColumnsFile");
+    const fileLabel = root.querySelector("#ywbColumnsFileLabel");
     const presets = root.querySelector("#ywbColumnsPresets");
     const selectAll = root.querySelector("#ywbColumnsSelectAll");
     const exportButton = root.querySelector("#ywbColumnsExport");
@@ -507,7 +566,16 @@
     const singleFile = root.querySelector("#ywbColumnsSingleFile");
 
     if (exportSelect) exportSelect.innerHTML = renderAccountOptions(state.exportAccountId);
-    if (importSelect) importSelect.innerHTML = renderAccountOptions(state.importAccountId);
+    if (importSelect) {
+      importSelect.innerHTML = renderImportAccountOptions();
+      importSelect.size = Math.min(Math.max(importSelect.options.length, 2), 8);
+      importSelect.disabled = state.importAllAccounts || state.loadingAccounts || !state.accounts.length;
+    }
+    if (importSearch) {
+      importSearch.value = state.importSearchQuery;
+      importSearch.disabled = state.importAllAccounts || state.loadingAccounts || !state.accounts.length;
+    }
+    if (importAll) importAll.checked = state.importAllAccounts;
     if (presets) presets.innerHTML = renderPresetList();
     if (selectAll) {
       selectAll.checked = Boolean(state.exportPresets.length) && state.selectedPresetIds.size === state.exportPresets.length;
@@ -518,7 +586,10 @@
       exportButton.disabled = state.busy || state.loadingPresets || !state.selectedPresetIds.size;
       exportButton.textContent = state.busy && state.activeTab === "export" ? "Exporting..." : "Export selected";
     }
-    if (importButton) importButton.disabled = state.busy || !state.importAccountId;
+    const selectedImportAccountIds = getSelectedImportAccountIds();
+    if (importButton) importButton.disabled = state.busy || !selectedImportAccountIds.length;
+    if (fileInput) fileInput.disabled = state.busy || !selectedImportAccountIds.length;
+    if (fileLabel) fileLabel.classList.toggle("disabled", state.busy || !selectedImportAccountIds.length);
     if (packageInfo) {
       packageInfo.textContent = state.package
         ? `Last JSON: ${state.package.presets?.length || 0} preset(s) from act_${state.package.sourceAccountId || "unknown"}`
@@ -564,7 +635,9 @@
         .ywb-panel[hidden]{display:none}
         .ywb-field{display:grid;gap:5px}
         .ywb-field span{color:#aaa;font-size:12px}
-        .ywb-field select{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:9px 12px;font-size:13px}
+        .ywb-field select,.ywb-search{width:100%;border:1px solid #555;border-radius:6px;background:#2a2a2a;color:#f5f5f5;padding:9px 12px;font-size:13px}
+        .ywb-field select[multiple]{min-height:118px;padding:7px}
+        .ywb-field select:disabled,.ywb-search:disabled{opacity:.58}
         .ywb-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
         .ywb-row button,.ywb-file,#ywbColumnsRefresh{border:1px solid #ffc107;background:#ffc107;color:#111;border-radius:6px;padding:9px 12px;font-weight:800;cursor:pointer}
         .ywb-row button.primary,.ywb-file.primary{background:#ffc107;color:#111}
@@ -624,12 +697,14 @@
             </div>
 
             <div class="ywb-panel" data-panel="import" hidden>
-              <label class="ywb-field">
-                <span>Account</span>
-                <select id="ywbColumnsImportAccount">${renderAccountOptions(state.importAccountId)}</select>
-              </label>
+              <div class="ywb-field">
+                <span>Accounts</span>
+                <input class="ywb-search" id="ywbColumnsImportSearch" type="search" placeholder="Search by name or ID" autocomplete="off">
+                <label class="ywb-check"><input id="ywbColumnsImportAll" type="checkbox"> Импортировать все сразу</label>
+                <select id="ywbColumnsImportAccount" multiple>${renderImportAccountOptions()}</select>
+              </div>
               <div class="ywb-row">
-                <label class="ywb-file primary">Import JSON<input id="ywbColumnsFile" type="file" accept=".json,application/json" hidden></label>
+                <label class="ywb-file primary" id="ywbColumnsFileLabel">Import JSON<input id="ywbColumnsFile" type="file" accept=".json,application/json" hidden></label>
                 <label class="ywb-check"><input id="ywbColumnsClear" type="checkbox"> clear existing first</label>
               </div>
               <div id="ywbColumnsPackageInfo" class="ywb-note">Choose JSON during import; no separate load step needed.</div>
@@ -670,7 +745,24 @@
       }
     };
     root.querySelector("#ywbColumnsImportAccount").onchange = (event) => {
-      state.importAccountId = cleanAccountId(event.target.value);
+      const visibleIds = new Set(Array.from(event.target.options).map((option) => cleanAccountId(option.value)).filter(Boolean));
+      const selectedVisibleIds = Array.from(event.target.selectedOptions)
+        .map((option) => cleanAccountId(option.value))
+        .filter(Boolean);
+      const keptHiddenIds = state.selectedImportAccountIds.filter((id) => !visibleIds.has(id));
+      state.selectedImportAccountIds = [...new Set([...keptHiddenIds, ...selectedVisibleIds])];
+      state.importAllAccounts = false;
+      renderUiState();
+    };
+    root.querySelector("#ywbColumnsImportSearch").oninput = (event) => {
+      state.importSearchQuery = event.target.value || "";
+      renderUiState();
+    };
+    root.querySelector("#ywbColumnsImportAll").onchange = (event) => {
+      state.importAllAccounts = event.target.checked;
+      if (state.importAllAccounts) {
+        state.selectedImportAccountIds = state.accounts.map((account) => account.id).filter(Boolean);
+      }
       renderUiState();
     };
     root.querySelector("#ywbColumnsRefresh").onclick = async () => {
@@ -717,7 +809,7 @@
       state.activeTab = "import";
       renderUiState();
       try {
-        await importSelectedJson(file, state.importAccountId, root.querySelector("#ywbColumnsClear").checked);
+        await importSelectedJson(file, getSelectedImportAccountIds(), root.querySelector("#ywbColumnsClear").checked);
       } catch (error) {
         log(`Cannot import JSON: ${error.message}`, "error");
       } finally {
