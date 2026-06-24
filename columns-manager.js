@@ -2,7 +2,7 @@
   "use strict";
 
   const Config = {
-    VERSION: "240626b2",
+    VERSION: "240626b3",
     APP: "ColumnsManager",
     API_URL: "https://adsmanager-graph.facebook.com/v23.0/",
     CACHE_KEY: "columnsmanager.lastPackage.v1",
