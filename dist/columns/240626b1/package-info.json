@@ -1,28 +1,28 @@
 {
   "app": "ColumnsManager",
-  "build": "280526b1",
-  "version": "280526b1",
-  "generatedAt": "2026-05-28T19:11:30.612Z",
+  "build": "240626b1",
+  "version": "240626b1",
+  "generatedAt": "2026-06-24T10:32:13.871Z",
   "payload": {
     "encoding": "base64",
-    "sha256": "374c4be0e2d783d46e874906f140227b4cef35f7f3a1e5baf2a51fa5952fc02b",
+    "sha256": "1cbe83a3211fb8260a5d8bac7c3767fb8e4c98a9e9b0fc4db881d7e98e5dcab7",
     "byteLength": 39148
   },
   "chunks": [
     {
       "index": 1,
       "file": "og/chunk-001.html",
-      "url": "https://columnsmanager.pages.dev/columns/280526b1/og/chunk-001.html",
+      "url": "https://columnsmanager.pages.dev/columns/240626b1/og/chunk-001.html",
       "latestUrl": "https://columnsmanager.pages.dev/columns/latest/og/chunk-001.html",
       "ogObjectId": "",
       "base64Length": 52200,
-      "base64Sha256": "da952b6402371ae4721f57aae8f03b73317631c2854841ec597712a3bda93a87"
+      "base64Sha256": "8c35a9e30f1196edc45ceda9dc9bf35332fdbd598354555c9522db14989244b8"
     }
   ],
   "source": "columns-manager.js",
   "chunkSize": 350000,
   "payloadFile": "payload.js",
   "manifestFile": "manifest.html",
-  "manifestUrl": "https://columnsmanager.pages.dev/columns/280526b1/manifest.html",
+  "manifestUrl": "https://columnsmanager.pages.dev/columns/240626b1/manifest.html",
   "latestManifestUrl": "https://columnsmanager.pages.dev/columns/latest/manifest.html"
 }
